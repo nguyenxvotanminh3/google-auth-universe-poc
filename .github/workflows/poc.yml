@@ -12,7 +12,7 @@ jobs:
   auth:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # needed for OIDC
+      id-token: write
       contents: read
     steps:
       - id: auth
@@ -21,7 +21,24 @@ jobs:
           workload_identity_provider: 'projects/123456/locations/global/workloadIdentityPools/test-pool/providers/test-provider'
           service_account: 'test@test-project.iam.gserviceaccount.com'
           universe: ${{ github.event.inputs.universe_override }}
+          create_credentials_file: true
 
-      - name: Report
-        if: always()
-        run: echo "Action completed"
+      - name: Show generated credentials hostnames
+        run: |
+          echo "--- generated credentials file ---"
+          sed -E 's/(Authorization": "Bearer )[^"]+/\1REDACTED/g' "$GOOGLE_GHA_CREDS_PATH"
+
+      - name: Trigger STS exchange via google-auth-library
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import google.auth
+          import google.auth.transport.requests
+          creds, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
+          req = google.auth.transport.requests.Request()
+          try:
+              creds.refresh(req)
+          except Exception as e:
+              print(type(e).__name__)
+              print(str(e)[:1000])
+          PY
